@@ -1,0 +1,67 @@
+# Next.js frontend
+# dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# testing
+**/coverage
+
+# next.js
+**/.next/
+**/out/
+**/.vercel
+
+# production
+**/build
+
+# misc
+.DS_Store
+**/*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# Go backend
+# Binaries for programs and plugins
+**/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories (remove if using go modules with vendor directory)
+**/vendor/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+**/main
+
+# Log files
+*.log
+
+# Air hot reload configuration
+**/tmp/ 
