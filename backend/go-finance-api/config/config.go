@@ -4,17 +4,18 @@ import (
 	"log"
 	"os"
 
+	"github.com/davidwang/go-finance-api/go-finance-api/db"
 	"github.com/joho/godotenv"
 )
 
 // Config holds application configuration
 type Config struct {
-	PlaidClientID     string
-	PlaidSecret       string
-	PlaidEnv          string
-	DatabaseURL       string
-	Port              string
-	JWTSecret         string
+	PlaidClientID string
+	PlaidSecret   string
+	PlaidEnv      string
+	Port          string
+	JWTSecret     string
+	DB            db.DBConfig
 }
 
 // Load reads configuration from .env file
@@ -25,12 +26,19 @@ func Load() *Config {
 	}
 
 	config := &Config{
-		PlaidClientID:     getEnv("PLAID_CLIENT_ID", ""),
-		PlaidSecret:       getEnv("PLAID_SECRET", ""),
-		PlaidEnv:          getEnv("PLAID_ENV", "sandbox"),
-		DatabaseURL:       getEnv("DATABASE_URL", ""),
-		Port:              getEnv("PORT", "8080"),
-		JWTSecret:         getEnv("JWT_SECRET", "your-secret-key"),
+		PlaidClientID: getEnv("PLAID_CLIENT_ID", ""),
+		PlaidSecret:   getEnv("PLAID_SECRET", ""),
+		PlaidEnv:      getEnv("PLAID_ENV", "sandbox"),
+		Port:          getEnv("PORT", "8080"),
+		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key"),
+		DB: db.DBConfig{
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("DB_PORT", "5432"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "postgres"),
+			DBName:   getEnv("DB_NAME", "finance"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		},
 	}
 
 	return config
