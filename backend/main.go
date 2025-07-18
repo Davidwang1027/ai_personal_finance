@@ -8,6 +8,9 @@ import (
 
 	// Import the config package directly
 	"github.com/davidwang/go-finance-api/go-finance-api/config"
+	// Import our new plaid package
+	"github.com/davidwang/go-finance-api/go-finance-api/handlers"
+	"github.com/davidwang/go-finance-api/go-finance-api/plaid"
 )
 
 func main() {
@@ -15,6 +18,14 @@ func main() {
 	log.Println("Loading configuration...")
 	cfg := config.Load()
 	log.Println("Configuration loaded successfully")
+
+	// Initialize Plaid client
+	log.Println("Initializing Plaid client...")
+	plaidClient := plaid.NewClient(cfg)
+	log.Println("Plaid client initialized successfully")
+
+	// Initialize handlers
+	plaidHandler := handlers.NewPlaidHandler(plaidClient)
 
 	// Set up Gin router
 	log.Println("Setting up Gin router...")
@@ -34,10 +45,19 @@ func main() {
 		// Add a simple test endpoint
 		api.GET("/status", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"status": "operational",
-				"env":    cfg.PlaidEnv,
+				"status":      "operational",
+				"env":         cfg.PlaidEnv,
+				"plaid_ready": plaidClient != nil,
 			})
 		})
+
+		// Plaid endpoints
+		plaidRoutes := api.Group("/plaid")
+		{
+			plaidRoutes.POST("/create_link_token", plaidHandler.CreateLinkToken)
+			plaidRoutes.POST("/exchange_public_token", plaidHandler.ExchangePublicToken)
+			plaidRoutes.GET("/accounts", plaidHandler.GetAccounts)
+		}
 	}
 
 	// Start the server
