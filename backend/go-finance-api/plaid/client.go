@@ -3,6 +3,7 @@ package plaid
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/davidwang/go-finance-api/go-finance-api/config"
 	"github.com/plaid/plaid-go/v20/plaid"
@@ -108,4 +109,83 @@ func (c *Client) GetAccounts(accessToken string) (*plaid.AccountsGetResponse, er
 	}
 
 	return &resp, nil
+}
+
+// GetTransactions retrieves transactions for a specific date range
+func (c *Client) GetTransactions(accessToken string, startDate, endDate time.Time, options *plaid.TransactionsGetRequestOptions) (*plaid.TransactionsGetResponse, error) {
+	ctx := context.Background()
+
+	// Format dates in ISO 8601 format (YYYY-MM-DD)
+	startDateStr := startDate.Format("2006-01-02")
+	endDateStr := endDate.Format("2006-01-02")
+
+	request := plaid.NewTransactionsGetRequest(accessToken, startDateStr, endDateStr)
+
+	if options != nil {
+		request.SetOptions(*options)
+	}
+
+	resp, _, err := c.client.PlaidApi.TransactionsGet(ctx).TransactionsGetRequest(*request).Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// SyncTransactions uses the newer transactions/sync endpoint
+func (c *Client) SyncTransactions(accessToken string, cursor string) (*plaid.TransactionsSyncResponse, error) {
+	ctx := context.Background()
+
+	request := plaid.NewTransactionsSyncRequest(accessToken)
+
+	if cursor != "" {
+		request.SetCursor(cursor)
+	}
+
+	resp, _, err := c.client.PlaidApi.TransactionsSync(ctx).TransactionsSyncRequest(*request).Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// GetItem retrieves item information
+func (c *Client) GetItem(accessToken string) (*plaid.ItemGetResponse, error) {
+	ctx := context.Background()
+
+	request := plaid.NewItemGetRequest(accessToken)
+	resp, _, err := c.client.PlaidApi.ItemGet(ctx).ItemGetRequest(*request).Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// UpdateItemWebhook updates the webhook URL for an item
+func (c *Client) UpdateItemWebhook(accessToken, webhookURL string) (*plaid.ItemWebhookUpdateResponse, error) {
+	ctx := context.Background()
+
+	request := plaid.NewItemWebhookUpdateRequest(accessToken)
+	request.SetWebhook(webhookURL)
+	resp, _, err := c.client.PlaidApi.ItemWebhookUpdate(ctx).ItemWebhookUpdateRequest(*request).Execute()
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// VerifyWebhook verifies that a webhook is from Plaid
+// This is a simplified implementation - in production you would use the Plaid-Verification header
+func (c *Client) VerifyWebhook(body []byte) bool {
+	// In a real implementation, you would:
+	// 1. Extract the Plaid-Verification header from the request
+	// 2. Use the verification key to verify the signature
+	// 3. Check that the request is not expired
+
+	// For now we'll just return true as this is for development
+	return true
 }

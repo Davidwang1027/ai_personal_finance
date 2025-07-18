@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/davidwang/go-finance-api/go-finance-api/db"
 	"github.com/joho/godotenv"
@@ -20,9 +21,20 @@ type Config struct {
 
 // Load reads configuration from .env file
 func Load() *Config {
+	// Try to load .env from multiple possible locations
+	// First try the current directory
 	err := godotenv.Load()
+
 	if err != nil {
-		log.Println("Warning: .env file not found")
+		// Then try from the root backend directory
+		err = godotenv.Load(filepath.Join("..", "..", ".env"))
+		if err != nil {
+			// Try one more level up
+			err = godotenv.Load(filepath.Join("..", "..", "..", ".env"))
+			if err != nil {
+				log.Println("Warning: .env file not found, using environment variables")
+			}
+		}
 	}
 
 	config := &Config{
