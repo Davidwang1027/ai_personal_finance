@@ -7,12 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	// Import the config package directly
+	"github.com/davidwang/go-finance-api/go-finance-api/auth"
 	"github.com/davidwang/go-finance-api/go-finance-api/config"
 	"github.com/davidwang/go-finance-api/go-finance-api/db"
-
-	// Import our new plaid package
 	"github.com/davidwang/go-finance-api/go-finance-api/handlers"
+	"github.com/davidwang/go-finance-api/go-finance-api/middleware"
 	"github.com/davidwang/go-finance-api/go-finance-api/plaid"
 )
 
@@ -53,8 +52,22 @@ func main() {
 	plaidClient := plaid.NewClient(cfg)
 	log.Println("Plaid client initialized successfully")
 
+	// Initialize JWT configuration
+	log.Println("Setting up JWT authentication...")
+	jwtConfig := auth.JWTConfig{
+		Secret:     cfg.JWTSecret,
+		Issuer:     "finance-api",
+		Expiration: 60, // 60 minutes
+	}
+
 	// Initialize handlers
+	var authHandler *handlers.AuthHandler
 	plaidHandler := handlers.NewPlaidHandler(plaidClient)
+
+	// Initialize auth handler if database is available
+	if !skipDB {
+		authHandler = handlers.NewAuthHandler(database.Repositories.User, jwtConfig)
+	}
 
 	// Set up Gin router
 	log.Println("Setting up Gin router...")
@@ -81,8 +94,29 @@ func main() {
 			})
 		})
 
+		// Authentication endpoints - only if database is available
+		if !skipDB {
+			authRoutes := api.Group("/auth")
+			{
+				authRoutes.POST("/signup", authHandler.Signup)
+				authRoutes.POST("/login", authHandler.Login)
+				authRoutes.POST("/refresh", authHandler.RefreshToken)
+
+				// Protected routes
+				protected := authRoutes.Group("")
+				protected.Use(middleware.AuthMiddleware(jwtConfig))
+				{
+					protected.GET("/me", authHandler.Me)
+				}
+			}
+		}
+
 		// Plaid endpoints
 		plaidRoutes := api.Group("/plaid")
+		// Apply auth middleware if database is available
+		if !skipDB {
+			plaidRoutes.Use(middleware.AuthMiddleware(jwtConfig))
+		}
 		{
 			// Link and access token endpoints
 			plaidRoutes.POST("/create_link_token", plaidHandler.CreateLinkToken)
@@ -97,8 +131,8 @@ func main() {
 			plaidRoutes.GET("/item", plaidHandler.GetItem)
 			plaidRoutes.POST("/item/webhook", plaidHandler.UpdateItemWebhook)
 
-			// Webhook endpoint
-			plaidRoutes.POST("/webhook", plaidHandler.HandleWebhook)
+			// Webhook endpoint - this should not require auth as it's called by Plaid
+			api.POST("/plaid/webhook", plaidHandler.HandleWebhook)
 		}
 	}
 
