@@ -22,6 +22,7 @@ type DBConfig struct {
 // Database wraps the database connection
 type Database struct {
 	*sql.DB
+	Repositories *Repositories
 }
 
 // NewDatabase creates a new database connection
@@ -47,7 +48,24 @@ func NewDatabase(config DBConfig) (*Database, error) {
 	}
 
 	log.Println("Database connection established successfully")
-	return &Database{db}, nil
+
+	// Create the database wrapper
+	database := &Database{DB: db}
+
+	// Initialize repositories
+	database.Repositories = NewRepositories(database)
+
+	return database, nil
+}
+
+// Setup initializes the database schema
+func (d *Database) Setup() error {
+	// Run migrations to set up the schema
+	if err := d.MigrateDB(); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the database connection

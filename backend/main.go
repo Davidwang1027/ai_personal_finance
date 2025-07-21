@@ -22,25 +22,31 @@ func main() {
 	cfg := config.Load()
 	log.Println("Configuration loaded successfully")
 
-	// Initialize database connection
-	log.Println("Connecting to database...")
-	database, err := db.NewDatabase(cfg.DB)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-	defer database.Close()
+	// Check if we should skip database initialization (for development)
+	skipDB := os.Getenv("SKIP_DB") == "true"
+	var database *db.Database
 
-	// Run database migrations
-	if os.Getenv("SKIP_MIGRATIONS") != "true" {
-		log.Println("Running database migrations...")
-		if err := database.MigrateDB(); err != nil {
-			log.Fatalf("Failed to run database migrations: %v", err)
+	if !skipDB {
+		// Initialize database
+		log.Println("Connecting to database...")
+		var err error
+		database, err = db.NewDatabase(cfg.DB)
+		if err != nil {
+			log.Printf("Failed to connect to database: %v", err)
+			log.Println("To skip database initialization, set SKIP_DB=true")
+			log.Fatal("Exiting due to database connection failure")
 		}
-	}
+		defer database.Close()
 
-	// Initialize repositories
-	userRepo := db.NewUserRepository(database)
-	itemRepo := db.NewItemRepository(database)
+		// Run database migrations
+		log.Println("Running database migrations...")
+		if err := database.Setup(); err != nil {
+			log.Fatalf("Failed to set up database: %v", err)
+		}
+		log.Println("Database migrations completed successfully")
+	} else {
+		log.Println("Skipping database initialization (SKIP_DB=true)")
+	}
 
 	// Initialize Plaid client
 	log.Println("Initializing Plaid client...")
@@ -71,7 +77,7 @@ func main() {
 				"status":      "operational",
 				"env":         cfg.PlaidEnv,
 				"plaid_ready": plaidClient != nil,
-				"db_ready":    database != nil,
+				"db_ready":    skipDB || (database != nil && database.Ping() == nil),
 			})
 		})
 

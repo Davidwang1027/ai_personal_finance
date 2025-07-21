@@ -2,10 +2,10 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/davidwang/go-finance-api/go-finance-api/models"
+	"github.com/google/uuid"
 )
 
 // ItemRepository handles database operations for Plaid items
@@ -13,252 +13,171 @@ type ItemRepository struct {
 	db *Database
 }
 
-// NewItemRepository creates a new item repository
+// NewItemRepository creates a new ItemRepository
 func NewItemRepository(db *Database) *ItemRepository {
-	return &ItemRepository{db}
+	return &ItemRepository{db: db}
 }
 
 // Create inserts a new item into the database
 func (r *ItemRepository) Create(item *models.Item) error {
 	query := `
-	INSERT INTO items (
-		user_id, item_id, access_token, institution_id, institution_name, 
-		webhook_url, status, error, last_success_sync, transaction_cursor, 
-		created_at, updated_at
-	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-	RETURNING id`
-
-	now := time.Now()
-	err := r.db.QueryRow(
+		INSERT INTO items (id, user_id, plaid_item_id, access_token, institution_id, institution_name, status, webhook_url, consent, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+	_, err := r.db.Exec(
 		query,
+		item.ID,
 		item.UserID,
-		item.ItemID,
+		item.PlaidItemID,
 		item.AccessToken,
 		item.InstitutionID,
 		item.InstitutionName,
-		item.WebhookURL,
 		item.Status,
-		item.Error,
-		item.LastSuccessSync,
-		item.TransactionCursor,
-		now,
-		now,
-	).Scan(&item.ID)
-
-	if err != nil {
-		return fmt.Errorf("failed to create item: %w", err)
-	}
-
-	item.CreatedAt = now
-	item.UpdatedAt = now
-	return nil
+		item.WebhookURL,
+		item.Consent,
+		item.CreatedAt,
+		item.UpdatedAt,
+	)
+	return err
 }
 
 // GetByID retrieves an item by ID
-func (r *ItemRepository) GetByID(id int64) (*models.Item, error) {
+func (r *ItemRepository) GetByID(id uuid.UUID) (*models.Item, error) {
 	query := `
-	SELECT id, user_id, item_id, access_token, institution_id, institution_name,
-		webhook_url, status, error, last_success_sync, transaction_cursor,
-		created_at, updated_at
-	FROM items
-	WHERE id = $1`
-
-	item := &models.Item{}
+		SELECT id, user_id, plaid_item_id, access_token, institution_id, institution_name, status, webhook_url, consent, created_at, updated_at
+		FROM items
+		WHERE id = $1
+	`
+	var item models.Item
 	err := r.db.QueryRow(query, id).Scan(
 		&item.ID,
 		&item.UserID,
-		&item.ItemID,
+		&item.PlaidItemID,
 		&item.AccessToken,
 		&item.InstitutionID,
 		&item.InstitutionName,
-		&item.WebhookURL,
 		&item.Status,
-		&item.Error,
-		&item.LastSuccessSync,
-		&item.TransactionCursor,
+		&item.WebhookURL,
+		&item.Consent,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("item not found")
-	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get item: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, nil // Item not found
+		}
+		return nil, err
 	}
-
-	return item, nil
+	return &item, nil
 }
 
-// GetByPlaidItemID retrieves an item by Plaid's item_id
-func (r *ItemRepository) GetByPlaidItemID(itemID string) (*models.Item, error) {
+// GetByPlaidItemID retrieves an item by its Plaid item ID
+func (r *ItemRepository) GetByPlaidItemID(plaidItemID string) (*models.Item, error) {
 	query := `
-	SELECT id, user_id, item_id, access_token, institution_id, institution_name,
-		webhook_url, status, error, last_success_sync, transaction_cursor,
-		created_at, updated_at
-	FROM items
-	WHERE item_id = $1`
-
-	item := &models.Item{}
-	err := r.db.QueryRow(query, itemID).Scan(
+		SELECT id, user_id, plaid_item_id, access_token, institution_id, institution_name, status, webhook_url, consent, created_at, updated_at
+		FROM items
+		WHERE plaid_item_id = $1
+	`
+	var item models.Item
+	err := r.db.QueryRow(query, plaidItemID).Scan(
 		&item.ID,
 		&item.UserID,
-		&item.ItemID,
+		&item.PlaidItemID,
 		&item.AccessToken,
 		&item.InstitutionID,
 		&item.InstitutionName,
-		&item.WebhookURL,
 		&item.Status,
-		&item.Error,
-		&item.LastSuccessSync,
-		&item.TransactionCursor,
+		&item.WebhookURL,
+		&item.Consent,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("item not found")
-	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get item: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, nil // Item not found
+		}
+		return nil, err
 	}
-
-	return item, nil
+	return &item, nil
 }
 
-// GetByUserID retrieves all items for a user
-func (r *ItemRepository) GetByUserID(userID int64) ([]*models.Item, error) {
+// GetByUserID retrieves all items for a specific user
+func (r *ItemRepository) GetByUserID(userID uuid.UUID) ([]*models.Item, error) {
 	query := `
-	SELECT id, user_id, item_id, access_token, institution_id, institution_name,
-		webhook_url, status, error, last_success_sync, transaction_cursor,
-		created_at, updated_at
-	FROM items
-	WHERE user_id = $1
-	ORDER BY created_at DESC`
-
+		SELECT id, user_id, plaid_item_id, access_token, institution_id, institution_name, status, webhook_url, consent, created_at, updated_at
+		FROM items
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query items: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	items := []*models.Item{}
+	var items []*models.Item
 	for rows.Next() {
-		item := &models.Item{}
+		var item models.Item
 		err := rows.Scan(
 			&item.ID,
 			&item.UserID,
-			&item.ItemID,
+			&item.PlaidItemID,
 			&item.AccessToken,
 			&item.InstitutionID,
 			&item.InstitutionName,
-			&item.WebhookURL,
 			&item.Status,
-			&item.Error,
-			&item.LastSuccessSync,
-			&item.TransactionCursor,
+			&item.WebhookURL,
+			&item.Consent,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan item row: %w", err)
+			return nil, err
 		}
-		items = append(items, item)
+		items = append(items, &item)
 	}
-
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating items rows: %w", err)
+		return nil, err
 	}
-
 	return items, nil
 }
 
-// Update updates an item
+// Update updates an existing item
 func (r *ItemRepository) Update(item *models.Item) error {
 	query := `
-	UPDATE items
-	SET institution_id = $1, institution_name = $2, webhook_url = $3, 
-		status = $4, error = $5, last_success_sync = $6, 
-		transaction_cursor = $7, updated_at = $8
-	WHERE id = $9`
-
-	now := time.Now()
+		UPDATE items
+		SET status = $1, webhook_url = $2, consent = $3, institution_id = $4, institution_name = $5, updated_at = $6
+		WHERE id = $7
+	`
+	item.UpdatedAt = time.Now().UTC()
 	_, err := r.db.Exec(
 		query,
+		item.Status,
+		item.WebhookURL,
+		item.Consent,
 		item.InstitutionID,
 		item.InstitutionName,
-		item.WebhookURL,
-		item.Status,
-		item.Error,
-		item.LastSuccessSync,
-		item.TransactionCursor,
-		now,
+		item.UpdatedAt,
 		item.ID,
 	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update item: %w", err)
-	}
-
-	item.UpdatedAt = now
-	return nil
+	return err
 }
 
-// UpdateStatus updates an item's status
-func (r *ItemRepository) UpdateStatus(id int64, status string, errorMessage string) error {
+// UpdateAccessToken updates just the access token for an item
+func (r *ItemRepository) UpdateAccessToken(id uuid.UUID, accessToken string) error {
 	query := `
-	UPDATE items
-	SET status = $1, error = $2, updated_at = $3
-	WHERE id = $4`
-
-	now := time.Now()
-	_, err := r.db.Exec(
-		query,
-		status,
-		errorMessage,
-		now,
-		id,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update item status: %w", err)
-	}
-
-	return nil
+		UPDATE items
+		SET access_token = $1, updated_at = $2
+		WHERE id = $3
+	`
+	updatedAt := time.Now().UTC()
+	_, err := r.db.Exec(query, accessToken, updatedAt, id)
+	return err
 }
 
-// UpdateTransactionCursor updates an item's transaction cursor
-func (r *ItemRepository) UpdateTransactionCursor(id int64, cursor string) error {
-	query := `
-	UPDATE items
-	SET transaction_cursor = $1, last_success_sync = $2, updated_at = $3
-	WHERE id = $4`
-
-	now := time.Now()
-	_, err := r.db.Exec(
-		query,
-		cursor,
-		now,
-		now,
-		id,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update transaction cursor: %w", err)
-	}
-
-	return nil
-}
-
-// Delete deletes an item
-func (r *ItemRepository) Delete(id int64) error {
+// Delete removes an item from the database
+func (r *ItemRepository) Delete(id uuid.UUID) error {
 	query := `DELETE FROM items WHERE id = $1`
-
 	_, err := r.db.Exec(query, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete item: %w", err)
-	}
-
-	return nil
+	return err
 }

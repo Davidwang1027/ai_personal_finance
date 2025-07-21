@@ -24,7 +24,7 @@ backend/
 
 ### Database Layer (db/)
 - ~~PostgreSQL connection setup~~ ✅
-- ~~Tables for:~~ ✅
+- ~~Tables for:~~
   - ~~Users~~ ✅
   - ~~Items (Plaid items - linked bank accounts)~~ ✅
   - ~~Accounts~~ ✅
@@ -87,13 +87,10 @@ backend/
 - [x] Basic API endpoints (create_link_token, exchange_public_token, accounts)
 - [x] Advanced API endpoints (transactions, item info, webhooks)
 - [x] Unit tests for all Plaid client methods and handlers
-- [x] Database schema design
-- [x] Database connection and models
-- [x] Repository implementation for database operations
+- [x] Database schema design and repository implementation
 
 ### In Progress
-- [ ] Integration of database repositories with API handlers
-- [ ] Authentication middleware implementation
+- [ ] Database integration with API handlers
 
 ### To Do
 - [ ] Authentication middleware
